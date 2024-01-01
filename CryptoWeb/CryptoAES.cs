@@ -23,11 +23,9 @@ namespace Crypto.cs
         public byte[] Decrypt(byte[] data);
     }
 
-    class CryptoAES : ICryptoAES
+    class CryptoAES
     {
         private AesCng AESObj;
-        private byte[] IV;
-        private byte[] Key;
 
         private class CryptoException : Exception
         {
@@ -45,68 +43,79 @@ namespace Crypto.cs
         public CryptoAES()
         {
             AESObj = new AesCng();
-            AESObj.GenerateIV();
-            AESObj.GenerateKey();
         }
 
-        
+
         public byte[] GetIV() { return AESObj.IV; }
         public byte[] GetKey() { return AESObj.Key; }
 
+        public void NewIVAndKey(string passwd, int keySize)
+        {
+            byte[] salt1 = Encoding.UTF8.GetBytes(passwd);
+            int myIterations = 1000;
+            Rfc2898DeriveBytes k1 = new Rfc2898DeriveBytes(passwd, salt1, myIterations);
+            byte[] bytes = k1.GetBytes(keySize);
+            AESObj.Key = bytes;
+            AESObj.IV = bytes;
+        }
 
-        public void NewIVAndKey(byte[] iv) { AESObj.GenerateIV(); AESObj.GenerateKey(); }
         public void Clear() { AESObj.Clear(); }
 
-      /*public string ReadFromFile(string path)
-        {
-            BinaryReader br = new BinaryReader(File.Open(path, FileMode.Open));
-            List<byte> bytes = new List<byte>();
+        /*public string ReadFromFile(string path)
+          {
+              BinaryReader br = new BinaryReader(File.Open(path, FileMode.Open));
+              List<byte> bytes = new List<byte>();
 
-            while (br.BaseStream.Position < br.BaseStream.Length)
+              while (br.BaseStream.Position < br.BaseStream.Length)
+              {
+                  bytes.Add(br.ReadByte());
+              }
+              br.Close();
+              return Decrypt(AESObj, bytes.ToArray());
+          }
+          public void WriteToFile(string data, string path)
+          {
+              BinaryWriter bw = new BinaryWriter(File.Open(path, FileMode.Append));
+              byte[] buff = Encrypt(AESObj, data);
+              bw.Write(buff);
+              bw.Close();
+          }*/
+
+
+        public Task<byte[]> Encrypt(byte[] data) { return Encrypt(AESObj, data); }
+        public Task<byte[]> Decrypt(byte[] data) { return Decrypt(AESObj, data); }
+
+        private Task<byte[]> Encrypt(SymmetricAlgorithm sa, byte[] data)
+        {
+            return new Task<byte[]>(() =>
             {
-                bytes.Add(br.ReadByte());
-            }
-            br.Close();
-            return Decrypt(AESObj, bytes.ToArray());
+                try
+                {
+                    ICryptoTransform cryptoTransform = sa.CreateEncryptor();
+                    byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
+                    return outBlock;
+                }
+                catch (Exception ex)
+                {
+                    throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
+                }
+            });
         }
-        public void WriteToFile(string data, string path)
+        private Task<byte[]> Decrypt(SymmetricAlgorithm sa, byte[] data)
         {
-            BinaryWriter bw = new BinaryWriter(File.Open(path, FileMode.Append));
-            byte[] buff = Encrypt(AESObj, data);
-            bw.Write(buff);
-            bw.Close();
-        }*/
-
-
-        public byte[] Encrypt(byte[] data) {return Encrypt(data);}
-        public byte[] Decrypt(byte[] data) { return Decrypt(data); }
-
-        private byte[] Encrypt(SymmetricAlgorithm sa, byte[] data)
-        {
-            try
+            return new Task<byte[]>(() =>
             {
-                ICryptoTransform cryptoTransform = sa.CreateEncryptor();
-                byte[] outblock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
-                return outblock;
-            }
-            catch (Exception ex)
-            {
-                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
-            }
-
+                try
+                {
+                    ICryptoTransform cryptoTransform = sa.CreateDecryptor();
+                    byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
+                    return outBlock;
+                }
+                catch (Exception ex)
+                {
+                    throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
+                }
+            });
         }
-        private byte[] Decrypt(SymmetricAlgorithm sa, byte[] data)
-        {
-            try
-            {
-                ICryptoTransform cryptoTransform = sa.CreateDecryptor();
-                byte[] outblock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
-                return outblock;
-            }
-            catch (Exception ex)
-            {
-                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
-            }
-        }
-    }   
+    }
 }
