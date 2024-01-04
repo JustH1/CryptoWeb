@@ -1,12 +1,12 @@
-using System.Reflection.PortableExecutable;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace CryptoWeb
 {
     public class Program
     {
-        static string UPLOADED_FILE_PATH = $"{Directory.GetCurrentDirectory()}/Uploaded";
+        private static string UPLOADED_FILE_PATH = $"{Directory.GetCurrentDirectory()}/Uploaded";
+        private static Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
+
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
@@ -27,14 +27,65 @@ namespace CryptoWeb
             app.Run();
         }
 
+        private static void FileUploadDecrypt(IApplicationBuilder builder)
+        {
+            IFormFileCollection files = null;
+            List<string> DecryptedFilesPath = new List<string>();
 
+            builder.Use(async (context, next) =>
+            {
+                files = context.Request.Form.Files;
+                if (files != null)
+                {
+                    List<byte> DecryptedBytes = new List<byte>();
+                    foreach (var file in files)
+                    {
+                        using (BinaryReader br = new BinaryReader(file.OpenReadStream()))
+                        {
+                            while (br.BaseStream.Position != br.BaseStream.Length)
+                            {
+                                DecryptedBytes.Add(br.ReadByte());
+                            }
+                            DecryptedBytes.AddRange(await cryptoAES.Decrypt(DecryptedBytes.ToArray()));
+
+                            int index = DecryptedBytes.IndexOf(0);
+                            byte[] extantionByte = new byte[index];
+                            Array.Copy(DecryptedBytes.ToArray(), extantionByte, index);
+                            string extantionFile = Encoding.UTF8.GetString(extantionByte);
+
+                            string extantionCurrentFile = $"{UPLOADED_FILE_PATH}/Encrypt/{file.FileName.Split('.')[0]}.{extantionFile}";
+                            DecryptedFilesPath.Add(extantionCurrentFile);
+                            using (StreamWriter fs = new StreamWriter(File.Create(extantionCurrentFile)))
+                            {
+                                string data = Encoding.UTF8.GetString(DecryptedBytes.ToArray());
+                                await fs.WriteAsync(data);
+                            }
+                            DecryptedBytes.Clear();
+                        }
+                    }
+                    await next.Invoke(context);
+                }
+                else
+                {
+                    context.Response.StatusCode = 400;
+                    await context.Response.WriteAsync("Files are missing.");
+                }
+            });
+            builder.Run(async (context) =>
+            {
+                context.Response.StatusCode = 200;
+                foreach (var FilePath in DecryptedFilesPath)
+                {
+                    await context.Response.SendFileAsync(FilePath);
+                }
+            });
+        }
         private static void FileUploadEncrypt(IApplicationBuilder builder)
         {
             IFormFileCollection? files = null;
             List<string> EncryptedFilesPath = null;
-            Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
-            
-            //создание файлов для записи
+   
+            //creating files for writing and write into them the files extensions
             builder.Use(async (context, next) =>
             {
                 files = context.Request.Form.Files;
@@ -52,14 +103,18 @@ namespace CryptoWeb
                     }
                     await next.Invoke(context);
                     await Console.Out.WriteLineAsync($"Request on encrypt: {files.Count} files.");
+                    foreach (var file in EncryptedFilesPath)
+                    {
+                        File.Delete(file);
+                    }
                 }
                 else
                 {
                     await context.Response.WriteAsync("Files are missing.");
                 }
             });
-
-            builder.Use(async (context, next) => 
+            //encrypting content of files and moving this into created buffer 
+            builder.Use(async (context, next) =>
             {
                 for (int i = 0; i < files.Count; i++)
                 {
@@ -78,73 +133,15 @@ namespace CryptoWeb
                     await next.Invoke(context);
                 }
             });
-        }
-
-
-
-
-
-        private static void FileUpload(IApplicationBuilder builder)
-        {
-            IFormFileCollection? files = null;
-            bool type = true; //true - encryption, false - decryption
-
-            builder.Use(async (context, next) =>
+            //sending encrypted files
+            builder.Run(async (context) =>
             {
-                files = context.Request.Form.Files;
-
-                if (files != null)
+                context.Response.StatusCode = 200;
+                foreach (var filePath in EncryptedFilesPath)
                 {
-                    if (context.Request.Query["type"] == "encryption")
-                    {
-                        type = true;
-                    }
-                    else if (context.Request.Query["type"] == "decryption")
-                    {
-                        type = false;
-                    }
-                    await next(context);
-                }
-                else
-                {
-                    Console.WriteLine($"{DateTime.Now} : Null files passed.");
+                    await context.Response.SendFileAsync(filePath);
                 }
             });
-            builder.Use(async (context, next) =>
-            {
-                Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
-                IFormFileCollection files = context.Request.Form.Files;
-                foreach (var file in files)
-                {
-                    using (StreamReader stream = new StreamReader(file.OpenReadStream()))
-                    {
-                        string pathResultFile = $"{UPLOADED_FILE_PATH}/{file.FileName}.bin";
-                        string dataStr = await stream.ReadToEndAsync();
-                        byte[] bytes = Encoding.UTF8.GetBytes(dataStr);
-                        File.Create(pathResultFile);
-
-                        if (type)
-                        {
-                            bytes = await cryptoAES.Encrypt(bytes);
-                        }
-                        else
-                        {
-                            bytes = await cryptoAES.Encrypt(bytes);
-                        }
-
-                        using (BinaryWriter bw = new BinaryWriter(File.Open(pathResultFile, FileMode.Append)))
-                        {
-                            new Task(() =>
-                            {
-                                bw.Write(bytes);
-                            }).Wait();
-                        }
-                    }
-                }
-            });
-
         }
-
-
     }
 }

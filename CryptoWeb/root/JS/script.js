@@ -14,6 +14,8 @@ let EncryptionLink = document.querySelector("#EncryptionLink");
 let DecryptionLink = document.querySelector("#DecryptionLink");
 //отправка файлов для работы на сервере
 let sendFiles = document.querySelector("#send");
+//Input for entering the password
+let inputPasswd = document.querySelector("#input-passwd");
 
 let fileArray = [];
 
@@ -23,12 +25,30 @@ sendFiles.addEventListener("click", async () => {
     fileArray.forEach((element) => {
         formData.append(element.name, element);
     });
-    let response = await fetch(`/upload?type=${encryptOrDecryp}`, {
+
+    let passwd = (checkEmptyInputPass() === true) ? inputPasswd.trim() : alert("Password is`t to be empty");
+
+    let response = await fetch(`/upload?type=${encryptOrDecryp}&pass=${passwd}`, {
         method: "POST",
         body: formData,
     });
+
+    if (response.ok) {
+        alert("Perfect");
+    }
+    else {
+        alert(`${response.status}:${await response.text()}`);
+    }
 });
 
+
+//Проверка на пустой пароль
+function checkEmptyInputPass() {
+    if (inputPasswd.trim() === '') {
+        return false;
+    }
+    return true;
+}
 //хотим шифровать
 document.querySelector("#EncryptionLink").addEventListener("click", () => {
     if (!EncryptionLink.classList.contains("done")) {
