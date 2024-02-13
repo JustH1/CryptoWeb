@@ -9,9 +9,9 @@ let fileList = document.querySelector("#file-list");
 //текстовое поле для вывода информации о количестве загруженных файлов
 let countFiles = document.querySelector("#count-files");
 //header Encryption
-let EncryptionLink = document.querySelector("#EncryptionLink");
+let encryptionLink = document.querySelector("#EncryptionLink");
 //header Decryption
-let DecryptionLink = document.querySelector("#DecryptionLink");
+let decryptionLink = document.querySelector("#DecryptionLink");
 //отправка файлов для работы на сервере
 let sendFiles = document.querySelector("#send");
 //Input for entering the password
@@ -26,43 +26,52 @@ sendFiles.addEventListener("click", async () => {
         formData.append(element.name, element);
     });
 
-    let passwd = (checkEmptyInputPass() === true) ? inputPasswd.trim() : alert("Password is`t to be empty");
+    let passwd;
 
-    let response = await fetch(`/upload?type=${encryptOrDecryp}&pass=${passwd}`, {
-        method: "POST",
-        body: formData,
-    });
+    if (checkEmptyInputPass() === true) {
+        passwd = inputPasswd.value.trim();
 
-    if (response.ok) {
-        alert("Perfect");
+        let response = await fetch(`/Encrypt?pass=${passwd}`, {
+            method: "POST",
+            body: formData,
+        });
+        
+        if (response.ok) {
+            alert("Perfect");
+        }
+        else {
+            alert(`${response.status}:${await response.text()}`);
+        }
     }
     else {
-        alert(`${response.status}:${await response.text()}`);
+        alert("Password is not to be empty.");
     }
+
+    
 });
 
 
 //Проверка на пустой пароль
 function checkEmptyInputPass() {
-    if (inputPasswd.trim() === '') {
+    if (inputPasswd.value.trim() === "") {
         return false;
     }
     return true;
 }
 //хотим шифровать
 document.querySelector("#EncryptionLink").addEventListener("click", () => {
-    if (!EncryptionLink.classList.contains("done")) {
+    if (!encryptionLink.classList.contains("done")) {
         encryptOrDecryp = true;
-        EncryptionLink.classList.toggle("done");
-        DecryptionLink.classList.remove("done");
+        encryptionLink.classList.toggle("done");
+        decryptionLink.classList.remove("done");
     }
 });
 //хотим дешифровать
 document.querySelector("#DecryptionLink").addEventListener("click", () => {
-    if (!DecryptionLink.classList.contains("done")) {
+    if (!decryptionLink.classList.contains("done")) {
         encryptOrDecryp = false;
-        EncryptionLink.classList.remove("done");
-        DecryptionLink.classList.toggle("done");
+        encryptionLink.classList.remove("done");
+        decryptionLink.classList.toggle("done");
     }
 });
 

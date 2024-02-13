@@ -11,4 +11,14 @@
     <Folder Include="Uploaded\Decrypt\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="wwwroot\css\style.css" />
+    <None Include="wwwroot\index.html" />
+    <None Include="wwwroot\JS\script.js" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bootstrap" Version="5.3.2" />
+  </ItemGroup>
+
 </Project>

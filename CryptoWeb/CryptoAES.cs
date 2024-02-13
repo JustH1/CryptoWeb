@@ -3,7 +3,6 @@ using System.Text;
 
 namespace Crypto.cs
 {
-
     interface ICryptoAES
     {
         //Return current IV
@@ -82,40 +81,35 @@ namespace Crypto.cs
           }*/
 
 
-        public Task<byte[]> Encrypt(byte[] data) { return Encrypt(AESObj, data); }
-        public Task<byte[]> Decrypt(byte[] data) { return Decrypt(AESObj, data); }
+        public byte[] Encrypt(byte[] data) { return Encrypt(AESObj, data); }
+        public byte[] Decrypt(byte[] data) { return Decrypt(AESObj, data); }
 
-        private Task<byte[]> Encrypt(SymmetricAlgorithm sa, byte[] data)
+        private byte[] Encrypt(SymmetricAlgorithm sa, byte[] data)
         {
-            return new Task<byte[]>(() =>
+
+            try
             {
-                try
-                {
-                    ICryptoTransform cryptoTransform = sa.CreateEncryptor();
-                    byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
-                    return outBlock;
-                }
-                catch (Exception ex)
-                {
-                    throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
-                }
-            });
+                ICryptoTransform cryptoTransform = sa.CreateEncryptor();
+                byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
+                return outBlock;
+            }
+            catch (Exception ex)
+            {
+                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
+            }
         }
-        private Task<byte[]> Decrypt(SymmetricAlgorithm sa, byte[] data)
+        private byte[] Decrypt(SymmetricAlgorithm sa, byte[] data)
         {
-            return new Task<byte[]>(() =>
+            try
             {
-                try
-                {
-                    ICryptoTransform cryptoTransform = sa.CreateDecryptor();
-                    byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
-                    return outBlock;
-                }
-                catch (Exception ex)
-                {
-                    throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
-                }
-            });
+                ICryptoTransform cryptoTransform = sa.CreateDecryptor();
+                byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
+                return outBlock;
+            }
+            catch (Exception ex)
+            {
+                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
+            }
         }
     }
 }
