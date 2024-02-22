@@ -25,69 +25,32 @@ namespace CryptoWeb
                 await context.Response.SendFileAsync("wwwroot\\index.html");   
             });
 
-            app.UseWhen(context => context.Request.Path == "/Encrypt" && context.Request.Method == "POST", FileUploadEncrypt);
+            app.Map("/Encrypt", FileUploadEncrypt);
 
-            app.UseWhen(context => context.Request.Path == "/Decrypt" && context.Request.Method == "POST", FileUploadDecrypt);
+            app.Map("/Decrypt", FileUploadDecrypt);
 
-            app.UseWhen(context => context.Request.Path == "/download" && context.Request.Method == "GET", FileDownload);
+            app.Map("/Download", FileDownload);
 
             app.Run();
         }
 
         private static string DECRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Decrypt\\";
         private static string ENCRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Encrypt\\";
+        
         private static void FileDownload(IApplicationBuilder builder)
-        {
-            //string url = $"/download?type=encrypt&array={Uri.EscapeDataString(serializedArray)}";
-
-            IEnumerable<string> ResultPaths = new List<string>();
-
-            builder.Use(async (context, next) =>
+        { 
+            //Creating archive and send them;
+            builder.Run(async(context) =>
             {
-                string serializedArray = Uri.UnescapeDataString(context.Request.Path.ToString().TrimStart('&').Split('=')[1]);
-
-                string[] deserializedArray = JsonSerializer.Deserialize<string[]>(serializedArray);
-
-                foreach (var item in deserializedArray)
+                if (context.Request.Query["type"] == "true")
                 {
-                    Console.WriteLine(item);
-                }
-
-                if (context.Request.Query["type"] == "Encrypt")
-                {
-                    foreach (var FileName in deserializedArray)
-                    {
-                        ResultPaths.Append(ENCRYPT_PATH + FileName);
-                    }
+                    string FileName = context.Request.Query["name"];
+                    await Console.Out.WriteLineAsync("========="+ENCRYPT_PATH + FileName);
+                    await context.Response.SendFileAsync(ENCRYPT_PATH+FileName);
                 }
                 else
                 {
-                    foreach (var FileName in deserializedArray)
-                    {
-                        ResultPaths.Append(DECRYPT_PATH + FileName);
-                    }
-                }
-                await next.Invoke();
-            });
-
-            builder.Run(async(context) =>
-            {
-                string ZipPath = $"{Directory.GetCurrentDirectory()}\\Uploaded\\returnZip{new Random().Next(1,20)}";
-
-                await Console.Out.WriteLineAsync($"Created new return Zip: {ZipPath}");
-
-                using (FileStream ZipToOpen = new FileStream(ZipPath, FileMode.Create))
-                {
-                    using (ZipArchive ReturnArchive = new ZipArchive(ZipToOpen, ZipArchiveMode.Create))
-                    {
-                        foreach (var ResultFile in ResultPaths)
-                        {
-                            ReturnArchive.CreateEntryFromFile(ResultFile, Path.GetFileName(ResultFile));
-                        }
-                        context.Response.Headers.Add("Content-Disposition", $"attachment; filename={ZipPath}");
-                        await context.Response.SendFileAsync(ZipPath);
-                        File.Delete(ZipPath);
-                    }
+                    await Console.Out.WriteLineAsync("==========");
                 }
             });
         }
@@ -101,6 +64,7 @@ namespace CryptoWeb
             {
                 cryptoAES.NewIVAndKey(context.Request.Query["pass"].ToString(),16);
                 files = context.Request.Form.Files;
+
                 if (files != null)
                 {
                     List<byte> DecryptedBytes = new List<byte>();
@@ -119,7 +83,7 @@ namespace CryptoWeb
                             Array.Copy(DecryptedBytes.ToArray(), extantionByte, index);
                             string extantionFile = Encoding.UTF8.GetString(extantionByte);
 
-                            string extantionCurrentFile = $"{UPLOADED_FILE_PATH}/Encrypt/{file.FileName.Split('.')[0]}.{extantionFile}";
+                            string extantionCurrentFile = $"{DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{extantionFile}";
                             decryptedFilesPath.Add(extantionCurrentFile);
                             using (StreamWriter fs = new StreamWriter(File.Create(extantionCurrentFile)))
                             {
@@ -151,6 +115,7 @@ namespace CryptoWeb
         {
             IFormFileCollection? files = null;
             List<string> EncryptedFilesPath = null;
+
             //creating files for writing and write into them the files extensions
             builder.Use(async (context, next) =>
             {
@@ -162,10 +127,11 @@ namespace CryptoWeb
                     EncryptedFilesPath = new List<string>();
                     foreach (var item in files)
                     {
-                        string filePath = $"{UPLOADED_FILE_PATH}\\Encrypt\\{item.FileName.Split('.')[0]}.bin";
+                        string filePath = $"{ENCRYPT_PATH}{item.FileName.Split('.')[0]}.bin";
                         using (BinaryWriter bw = new BinaryWriter(File.Create(filePath)))
                         {
-                            bw.Write(Encoding.UTF8.GetBytes(Path.GetExtension(item.FileName) + '\0'));
+                            bw.Write(Encoding.UTF8.GetBytes(Path.GetExtension(item.FileName.Split('.')[1]) + '\0'));
+                            await Console.Out.WriteLineAsync(item.FileName.Split('.')[1]);
                             EncryptedFilesPath.Add(filePath);
                         }
                     }
@@ -181,6 +147,7 @@ namespace CryptoWeb
             //encrypting content of files and moving this into created buffer 
             builder.Use(async (context, next) =>
             {
+                
                 Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
                 cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
 
@@ -205,16 +172,24 @@ namespace CryptoWeb
             //sending encrypted files
             builder.Run(async (context) =>
             {
-                Console.Write("block_3: ");
-                List<string> filesName = new List<string>();
-                foreach (var filePath in EncryptedFilesPath)
+                await Console.Out.WriteAsync("FileDownloing: block3");
+
+                string ZipPath = $"{ENCRYPT_PATH}ReturnEncryptZip{new Random().Next(1, 200)}.zip";
+
+                await Console.Out.WriteAsync($"Created new return Zip: {ZipPath}");
+
+                using (FileStream ZipToOpen = new FileStream(ZipPath, FileMode.Create))
                 {
-                    filesName.Add(Path.GetFileName(filePath));
+                    using (ZipArchive ReturnArchive = new ZipArchive(ZipToOpen, ZipArchiveMode.Create))
+                    {
+                        foreach (var ResultFile in EncryptedFilesPath)
+                        {
+                            ReturnArchive.CreateEntryFromFile(ResultFile, Path.GetFileName(ResultFile));
+                        }
+                    }
                 }
-                string serializedArray = JsonSerializer.Serialize(filesName.ToArray());
-                string url = $"/download?type=encrypt&array={Uri.EscapeDataString(serializedArray)}";
-                context.Response.Redirect(url);
-                Console.WriteLine("+;");
+                await Console.Out.WriteLineAsync("+;");
+                await context.Response.WriteAsync(Path.GetFileName(ZipPath));
             });
         }
     }

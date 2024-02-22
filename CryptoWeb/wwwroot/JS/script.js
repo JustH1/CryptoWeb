@@ -1,5 +1,5 @@
 //шифруем или дешифруем (true - encr, false-decr)
-let encryptOrDecryp = true;
+var encryptOrDecryp = true;
 //форма
 let form = document.querySelector("form");
 //input выбора файла(ов)
@@ -22,25 +22,62 @@ let fileArray = [];
 //обработка события нажатия на кнопку отправки файлов
 sendFiles.addEventListener("click", async () => {
     let formData = new FormData();
-    fileArray.forEach((element) => {
-        formData.append(element.name, element);
-    });
 
-    let passwd;
+    var fileTypesEncryption = [".txt"];
+    var fileTypesDecryption = [".bin"];
+
+    if (encryptOrDecryp === true) {
+        fileArray.forEach((element) => {
+            if ((fileTypesEncryption.indexOf(element.name.split('.')[1]) > -1) === true) {
+                formData.append(element.name, element);
+            }
+            else {
+                alert("Unsupported file format.");
+            }
+        });
+    }
+    else {
+        fileArray.forEach((element) => {
+            if ((fileTypesDecryption.indexOf(element.name.split('.')[1]) > -1) === true) {
+                formData.append(element.name, element);
+            }
+            else {
+                alert("Unsupported file format.");
+            }
+        });
+    }
+
+    let Passwd;
 
     if (checkEmptyInputPass() === true) {
-        passwd = inputPasswd.value.trim();
+        Passwd = inputPasswd.value.trim();
 
-        let response = await fetch(`/Encrypt?pass=${passwd}`, {
-            method: "POST",
-            body: formData,
-        });
-        
-        if (response.ok) {
-            alert("Perfect");
+        var response;
+
+        if (encryptOrDecryp === true) {
+             response =  await fetch(`/Encrypt?pass=${Passwd}`, {
+                 method: "POST",
+                 body: formData,
+             });
         }
         else {
-            alert(`${response.status}:${await response.text()}`);
+            response = await fetch(`/Decrypt?pass=${Passwd}`, {
+                method: "POST",
+                body: formData,
+            });
+        }
+
+        if (response.status = 200) {
+            var FileName = (await response.text()).toString();
+            var DownloadLink = document.createElement('a');
+            console.log(FileName);
+            DownloadLink.href = `/Download?type=${encryptOrDecryp}&name=${FileName}`;
+            DownloadLink.download = FileName;
+            DownloadLink.click();
+            DownloadLink.remove();
+        }
+        else {
+            alert("Status: " + response.status + ". Error: " + response.text());
         }
     }
     else {
@@ -49,7 +86,6 @@ sendFiles.addEventListener("click", async () => {
 
     
 });
-
 
 //Проверка на пустой пароль
 function checkEmptyInputPass() {
