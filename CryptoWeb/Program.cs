@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.StaticFiles;
 
 namespace CryptoWeb
@@ -22,7 +23,7 @@ namespace CryptoWeb
             app.MapGet("/", async (context) =>
             {
                 context.Response.ContentType = "text/html; charset=utf-8";
-                await context.Response.SendFileAsync("wwwroot\\index.html");   
+                await context.Response.SendFileAsync("wwwroot\\index.html");
             });
 
             app.Map("/Encrypt", FileUploadEncrypt);
@@ -36,21 +37,20 @@ namespace CryptoWeb
 
         private static string DECRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Decrypt\\";
         private static string ENCRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Encrypt\\";
-        
+
         private static void FileDownload(IApplicationBuilder builder)
-        { 
+        {
             //Creating archive and send them;
-            builder.Run(async(context) =>
+            builder.Run(async (context) =>
             {
+                string FileName = context.Request.Query["name"];
                 if (context.Request.Query["type"] == "true")
                 {
-                    string FileName = context.Request.Query["name"];
-                    await Console.Out.WriteLineAsync("========="+ENCRYPT_PATH + FileName);
-                    await context.Response.SendFileAsync(ENCRYPT_PATH+FileName);
+                    await context.Response.SendFileAsync(ENCRYPT_PATH + FileName);
                 }
                 else
                 {
-                    await Console.Out.WriteLineAsync("==========");
+                    await context.Response.SendFileAsync(DECRYPT_PATH + FileName);
                 }
             });
         }
@@ -62,7 +62,8 @@ namespace CryptoWeb
 
             builder.Use(async (context, next) =>
             {
-                cryptoAES.NewIVAndKey(context.Request.Query["pass"].ToString(),16);
+                Console.Write($"block_2: {context.Request.Query["pass"]}");
+                cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
                 files = context.Request.Form.Files;
 
                 if (files != null)
@@ -72,26 +73,36 @@ namespace CryptoWeb
                     {
                         using (BinaryReader br = new BinaryReader(file.OpenReadStream()))
                         {
+                            await Console.Out.WriteLineAsync("1");
                             while (br.BaseStream.Position != br.BaseStream.Length)
                             {
                                 DecryptedBytes.Add(br.ReadByte());
                             }
-                            DecryptedBytes.AddRange(cryptoAES.Decrypt(DecryptedBytes.ToArray()));
-
-                            int index = DecryptedBytes.IndexOf(0);
-                            byte[] extantionByte = new byte[index];
-                            Array.Copy(DecryptedBytes.ToArray(), extantionByte, index);
-                            string extantionFile = Encoding.UTF8.GetString(extantionByte);
-
-                            string extantionCurrentFile = $"{DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{extantionFile}";
-                            decryptedFilesPath.Add(extantionCurrentFile);
-                            using (StreamWriter fs = new StreamWriter(File.Create(extantionCurrentFile)))
-                            {
-                                string data = Encoding.UTF8.GetString(DecryptedBytes.ToArray());
-                                await fs.WriteAsync(data);
-                            }
-                            DecryptedBytes.Clear();
+                            await Console.Out.WriteLineAsync("2");
                         }
+
+                        int length = DecryptedBytes.Count;
+                        DecryptedBytes.AddRange(cryptoAES.Decrypt(DecryptedBytes.ToArray()));
+                        DecryptedBytes.RemoveRange(0,length);
+
+                        foreach (var item in DecryptedBytes)
+                        {
+                            await Console.Out.WriteLineAsync(item.ToString());
+                        }
+
+                        int index = DecryptedBytes.IndexOf(0);
+
+                        Console.WriteLine("kmjokjoij"+index);
+                        string ext = Encoding.UTF32.GetString(DecryptedBytes.GetRange(0, index).ToArray());
+                        Console.WriteLine(ext);
+                        string PathCurrentFile = $"{DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{ext}";
+                        decryptedFilesPath.Add(PathCurrentFile);
+                        using (StreamWriter fs = new StreamWriter(File.Create(PathCurrentFile)))
+                        {
+                            string data = Encoding.UTF8.GetString(DecryptedBytes.GetRange(index, DecryptedBytes.Count-index).ToArray());
+                            await fs.WriteAsync(data);
+                        }
+                        DecryptedBytes.Clear();
                     }
                     await next.Invoke(context);
                 }
@@ -107,7 +118,7 @@ namespace CryptoWeb
                 context.Response.StatusCode = 200;
                 foreach (var FilePath in decryptedFilesPath)
                 {
-                    await context.Response.SendFileAsync(FilePath);
+                    await context.Response.WriteAsync(Path.GetFileName(FilePath));
                 }
             });
         }
@@ -128,12 +139,7 @@ namespace CryptoWeb
                     foreach (var item in files)
                     {
                         string filePath = $"{ENCRYPT_PATH}{item.FileName.Split('.')[0]}.bin";
-                        using (BinaryWriter bw = new BinaryWriter(File.Create(filePath)))
-                        {
-                            bw.Write(Encoding.UTF8.GetBytes(Path.GetExtension(item.FileName.Split('.')[1]) + '\0'));
-                            await Console.Out.WriteLineAsync(item.FileName.Split('.')[1]);
-                            EncryptedFilesPath.Add(filePath);
-                        }
+                        EncryptedFilesPath.Add(filePath);
                     }
                     Console.WriteLine("+;");
                     await next.Invoke(context);
@@ -147,17 +153,17 @@ namespace CryptoWeb
             //encrypting content of files and moving this into created buffer 
             builder.Use(async (context, next) =>
             {
-                
+
                 Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
                 cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
 
                 Console.Write($"block_2: {context.Request.Query["pass"]}");
                 for (int i = 0; i < files.Count; i++)
                 {
-                    string dataStr = String.Empty;
+                    string dataStr = files[i].FileName.Split('.')[1] + "\0";
                     using (StreamReader reader = new StreamReader(files[i].OpenReadStream()))
                     {
-                        dataStr = await reader.ReadToEndAsync();
+                        dataStr += await reader.ReadToEndAsync();
                     }
                     byte[] EtcryptedData = cryptoAES.Encrypt(Encoding.UTF8.GetBytes(dataStr));
                     using (BinaryWriter bw = new BinaryWriter(File.Open(EncryptedFilesPath[i], FileMode.Append)))

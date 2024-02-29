@@ -102,13 +102,13 @@ namespace Crypto.cs
         {
             try
             {
-                ICryptoTransform cryptoTransform = sa.CreateDecryptor();
+                ICryptoTransform cryptoTransform = sa.CreateDecryptor();                
                 byte[] outBlock = cryptoTransform.TransformFinalBlock(data, 0, data.Length);
                 return outBlock;
             }
             catch (Exception ex)
             {
-                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}") { ErrorCode = CryptoException.ErrorCodeEnum.EncryptionError };
+                throw new CryptoException($"Encryption Error. Base Error:{ex.Message}");
             }
         }
     }
