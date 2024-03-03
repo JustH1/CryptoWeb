@@ -1,28 +1,9 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace Crypto.cs
+namespace CryptoWeb
 {
-    interface ICryptoAES
-    {
-        //Return current IV
-        public byte[] GetIV();
-        //Return current Key
-        public byte[] GetKey();
-
-        //Generate new IV and Key
-        public void NewIVAndKey(byte[] iv);
-        //Clears object`s data
-        public void Clear();
-
-        //Encrypting data
-        public byte[] Encrypt(byte[] data);
-
-        //Decrypting data
-        public byte[] Decrypt(byte[] data);
-    }
-
-    class CryptoAES
+    class CryptoAES : ICrypto
     {
         private AesCng AESObj;
 

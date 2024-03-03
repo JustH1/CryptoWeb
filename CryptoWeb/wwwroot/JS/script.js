@@ -23,7 +23,7 @@ let fileArray = [];
 sendFiles.addEventListener("click", async () => {
     let formData = new FormData();
 
-    var fileTypesEncryption = ["txt"];
+    var fileTypesEncryption = ["txt", "docx"];
     var fileTypesDecryption = ["bin"];
 
     if (encryptOrDecryp === true) {
@@ -39,7 +39,7 @@ sendFiles.addEventListener("click", async () => {
     else {
         fileArray.forEach((element) => {
             let FileName = element.name.split('.')[1];
-            if ((fileTypesDecryption.indexOf(FileName) > -1) === true) {
+            if ((fileTypesDecryption.indexOf(FileName) > -1) == true) {
                 formData.append(element.name, element);
             }
             else {

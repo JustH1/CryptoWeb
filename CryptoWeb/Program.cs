@@ -17,7 +17,9 @@ namespace CryptoWeb
             var builder = WebApplication.CreateBuilder(args);
 
             var app = builder.Build();
+
             app.UseHttpsRedirection();
+
             app.UseStaticFiles();
 
             app.MapGet("/", async (context) =>
@@ -26,7 +28,10 @@ namespace CryptoWeb
                 await context.Response.SendFileAsync("wwwroot\\index.html");
             });
 
-            app.Map("/Encrypt", FileUploadEncrypt);
+            app.Map("/Encrypt", () =>
+            {
+                app.UseMiddleware<EncryptingMiddleware>();
+            });
 
             app.Map("/Decrypt", FileUploadDecrypt);
 
@@ -84,7 +89,7 @@ namespace CryptoWeb
                         int length = DecryptedBytes.Count;
                         DecryptedBytes.AddRange(cryptoAES.Decrypt(DecryptedBytes.ToArray()));
                         DecryptedBytes.RemoveRange(0,length);
-
+                        
                         foreach (var item in DecryptedBytes)
                         {
                             await Console.Out.WriteLineAsync(item.ToString());
@@ -92,8 +97,8 @@ namespace CryptoWeb
 
                         int index = DecryptedBytes.IndexOf(0);
 
-                        Console.WriteLine("kmjokjoij"+index);
-                        string ext = Encoding.UTF32.GetString(DecryptedBytes.GetRange(0, index).ToArray());
+                        Console.WriteLine(index);
+                        string ext = Encoding.UTF8.GetString(DecryptedBytes.GetRange(0, index).ToArray());
                         Console.WriteLine(ext);
                         string PathCurrentFile = $"{DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{ext}";
                         decryptedFilesPath.Add(PathCurrentFile);
@@ -154,7 +159,7 @@ namespace CryptoWeb
             builder.Use(async (context, next) =>
             {
 
-                Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
+                CryptoAES cryptoAES = new CryptoAES();
                 cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
 
                 Console.Write($"block_2: {context.Request.Query["pass"]}");
