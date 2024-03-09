@@ -56,16 +56,57 @@ sendFiles.addEventListener("click", async () => {
         var response;
 
         if (encryptOrDecryp === true) {
-             response =  await fetch(`/Encrypt?pass=${Passwd}`, {
-                 method: "POST",
-                 body: formData,
-             });
-        }
-        else {
-            response = await fetch(`/Decrypt?pass=${Passwd}`, {
+            fetch(`/Encrypt?pass=${Passwd}`, {
                 method: "POST",
                 body: formData,
-            });
+            })
+                .then(response => {
+                    let fileName = getFileName(response.headers.get('Content-Disposition'));
+                    return { fileName, blob: response.blob() };
+                })
+                .then(({ fileName, blob }) => {
+                    const url = URL.createObjectURL(blob);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = fileName;
+                    downloadLink.style.display = 'none';
+
+                    document.body.appendChild(downloadLink);
+
+                    downloadLink.click();
+
+                    URL.revokeObjectURL(url);
+                });
+        }
+        else {
+            fetch(`/Decrypt?pass=${Passwd}`, {
+                method: "POST",
+                body: formData,
+            })
+                .then(response => {
+                    if (response.status = 200) {
+                        let fileName = getFileName(response.headers.get('Content-Disposition'));
+                        return { fileName, blob: response.blob() };
+                    }
+                    else {
+                        console.log(response.text());
+                    }
+                })
+                .then(({ fileName, blob }) => {
+                    const url = URL.createObjectURL(blob);
+
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = url;
+                    downloadLink.download = fileName;
+                    downloadLink.style.display = 'none';
+
+                    document.body.appendChild(downloadLink);
+
+                    downloadLink.click();
+
+                    URL.revokeObjectURL(url);
+                });
         }
 
         if (response.status = 200) {
@@ -84,10 +125,20 @@ sendFiles.addEventListener("click", async () => {
     else {
         alert("Password is not to be empty.");
     }
-
-    
 });
+function getFileName(contentDisposition) {
+    let filename = 'ResultFileArchive'; // Имя файла по умолчанию
 
+    if (contentDisposition && contentDisposition.indexOf('attachment') !== -1) {
+        const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+        const matches = filenameRegex.exec(contentDisposition);
+
+        if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+        }
+    }
+    return filename; 
+}
 //Проверка на пустой пароль
 function checkEmptyInputPass() {
     if (inputPasswd.value.trim() === "") {

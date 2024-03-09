@@ -10,7 +10,6 @@ namespace CryptoWeb
 {
     public class Program
     {
-        private static string UPLOADED_FILE_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded";
 
         public static void Main(string[] args)
         {
@@ -22,52 +21,42 @@ namespace CryptoWeb
 
             app.UseStaticFiles();
 
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseDeveloperExceptionPage();
+            }
+
             app.MapGet("/", async (context) =>
             {
                 context.Response.ContentType = "text/html; charset=utf-8";
                 await context.Response.SendFileAsync("wwwroot\\index.html");
             });
 
+            app.UseMiddleware<ErrorHandlingMiddleware>();
+
+            app.UseMiddleware<SendingFileMiddlewere>();
+            
             app.Map("/Encrypt", () =>
             {
                 app.UseMiddleware<EncryptingMiddleware>();
             });
 
-            app.Map("/Decrypt", FileUploadDecrypt);
-
-            app.Map("/Download", FileDownload);
+            app.Map("/Decrypt", () =>
+            {
+                app.UseMiddleware<DecryptingMiddleware>();
+            });
 
             app.Run();
         }
 
-        private static string DECRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Decrypt\\";
-        private static string ENCRYPT_PATH = $"{Directory.GetCurrentDirectory()}\\Uploaded\\Encrypt\\";
-
-        private static void FileDownload(IApplicationBuilder builder)
-        {
-            //Creating archive and send them;
-            builder.Run(async (context) =>
-            {
-                string FileName = context.Request.Query["name"];
-                if (context.Request.Query["type"] == "true")
-                {
-                    await context.Response.SendFileAsync(ENCRYPT_PATH + FileName);
-                }
-                else
-                {
-                    await context.Response.SendFileAsync(DECRYPT_PATH + FileName);
-                }
-            });
-        }
-        private static void FileUploadDecrypt(IApplicationBuilder builder)
+        /*private static void FileUploadDecrypt(IApplicationBuilder builder)
         {
             IFormFileCollection files = null;
             List<string> decryptedFilesPath = new List<string>();
-            Crypto.cs.CryptoAES cryptoAES = new Crypto.cs.CryptoAES();
+            CryptoAES cryptoAES = new CryptoAES();
 
             builder.Use(async (context, next) =>
             {
-                Console.Write($"block_2: {context.Request.Query["pass"]}");
                 cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
                 files = context.Request.Form.Files;
 
@@ -126,8 +115,8 @@ namespace CryptoWeb
                     await context.Response.WriteAsync(Path.GetFileName(FilePath));
                 }
             });
-        }
-        private static void FileUploadEncrypt(IApplicationBuilder builder)
+        }*/
+        /*private static void FileUploadEncrypt(IApplicationBuilder builder)
         {
             IFormFileCollection? files = null;
             List<string> EncryptedFilesPath = null;
@@ -202,6 +191,6 @@ namespace CryptoWeb
                 await Console.Out.WriteLineAsync("+;");
                 await context.Response.WriteAsync(Path.GetFileName(ZipPath));
             });
-        }
+        }*/
     }
 }
