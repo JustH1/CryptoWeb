@@ -5,15 +5,16 @@ namespace CryptoWeb
 
     public static class FileHandler
     {
-        public static string CreateZipAndGetResultFileName(ref List<string> EncryptedFilesPaths)
+        public static string CreateZipAndGetResultFileName(ref List<string> FilesPaths, bool type)
         {
-            string ZipPath = $"{GlobalValue.ENCRYPT_PATH}Crypto{DateTime.Now.ToString()}.zip";
+            uint id = (uint)new Random().Next(1, 100);
+            string ZipPath = (type == true) ? $"{GlobalValue.ENCRYPT_PATH}ResultFileArchive{id}.zip" : $"{GlobalValue.DECRYPT_PATH}ResultFileArchive{id}.zip";
 
             using (FileStream ZipToOpen = new FileStream(ZipPath, FileMode.Create))
             {
                 using (ZipArchive ReturnArchive = new ZipArchive(ZipToOpen, ZipArchiveMode.Create))
                 {
-                    EncryptedFilesPaths.ForEach(ResultFile =>
+                    FilesPaths.ForEach(ResultFile =>
                     {
                         ReturnArchive.CreateEntryFromFile(ResultFile, Path.GetFileName(ResultFile));
                     });

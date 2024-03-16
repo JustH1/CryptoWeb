@@ -40,28 +40,6 @@ namespace CryptoWeb
         }
 
         public void Clear() { AESObj.Clear(); }
-
-        /*public string ReadFromFile(string path)
-          {
-              BinaryReader br = new BinaryReader(File.Open(path, FileMode.Open));
-              List<byte> bytes = new List<byte>();
-
-              while (br.BaseStream.Position < br.BaseStream.Length)
-              {
-                  bytes.Add(br.ReadByte());
-              }
-              br.Close();
-              return Decrypt(AESObj, bytes.ToArray());
-          }
-          public void WriteToFile(string data, string path)
-          {
-              BinaryWriter bw = new BinaryWriter(File.Open(path, FileMode.Append));
-              byte[] buff = Encrypt(AESObj, data);
-              bw.Write(buff);
-              bw.Close();
-          }*/
-
-
         public byte[] Encrypt(byte[] data) { return Encrypt(AESObj, data); }
         public byte[] Decrypt(byte[] data) { return Decrypt(AESObj, data); }
 

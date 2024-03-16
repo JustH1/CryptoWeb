@@ -1,36 +1,36 @@
 ﻿using Microsoft.AspNetCore.Http;
+using System.IO;
 
 namespace CryptoWeb
 {
-    public class SendingFileMiddlewere
+    public class SendingFileMiddleware
     {
         private readonly RequestDelegate next;
-
-        public SendingFileMiddlewere(RequestDelegate next)
+        ILogger logger;
+        public SendingFileMiddleware(RequestDelegate next, ILogger logger)
         {
             this.next = next;
+            this.logger = logger;
         }
-        public async void InvokeAsync(HttpContext context)
+        public async Task InvokeAsync(HttpContext context)
         {
-            await next.Invoke(context);
-
-            try
+            if (context.Request.Path == "/Download")
             {
-                if (context.Items.TryGetValue("ZipFilePath", out var ZipFilePath))
+                string path = context.Request.Query["type"] == "true" ? GlobalValue.ENCRYPT_PATH : GlobalValue.DECRYPT_PATH;
+                path += context.Request.Query["name"];
+                if (File.Exists(path))
                 {
-                    string ResultFilePath = ZipFilePath as string ?? "";
-
-                    if (File.Exists(ResultFilePath)) { await context.Response.SendFileAsync(ResultFilePath); }
-                    else context.Response.StatusCode = 529;
+                    logger.LogInformation($"The file has been sent: {path}");
+                    await context.Response.SendFileAsync(path);
                 }
                 else
                 {
-                    context.Response.StatusCode = 528;
+                    context.Response.StatusCode = 529;
                 }
-            }
-            catch (Exception)
+            } 
+            else
             {
-                context.Response.StatusCode = 530;      
+                await next.Invoke(context);
             }
         }
     }

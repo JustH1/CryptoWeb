@@ -1,73 +1,74 @@
 ﻿using System.Text;
+using System.Text;
 
 namespace CryptoWeb
 {
     public class DecryptingMiddleware
     {
         private readonly RequestDelegate next;
-        CryptoAES CryptoAES = new CryptoAES();
+        ICrypto CryptoAES = new CryptoAES();
         public DecryptingMiddleware(RequestDelegate next)
         {
             this.next = next;
         }
-        public async void InvokeAsync(HttpContext context)
+        public async Task InvokeAsync(HttpContext context)
         {
-            List<string> DecryptedFilesPath = new List<string>();
-            IFormFileCollection? files = null;
-
-            try
+            if (context.Request.Path == "/Decrypt")
             {
-                CryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
-                files = context.Request.Form.Files;
+                List<string> DecryptedFilesPath = new List<string>();
+                IFormFileCollection? files = null;
 
-                if (files != null)
+                try
                 {
-                    List<byte> DecryptedBytes = new List<byte>();
-                    foreach (var file in files)
+                    CryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
+                    files = context.Request.Form.Files;
+
+                    if (files != null)
                     {
-                        using (BinaryReader br = new BinaryReader(file.OpenReadStream()))
+                        List<byte> DecryptedBytes = new List<byte>();
+                        foreach (var file in files)
                         {
-                            while (br.BaseStream.Position != br.BaseStream.Length)
+                            using (BinaryReader br = new BinaryReader(file.OpenReadStream()))
                             {
-                                DecryptedBytes.Add(br.ReadByte());
+                                while (br.BaseStream.Position != br.BaseStream.Length)
+                                {
+                                    DecryptedBytes.Add(br.ReadByte());
+                                }
                             }
+
+                            int length = DecryptedBytes.Count;
+
+                            DecryptedBytes.AddRange(CryptoAES.Decrypt(DecryptedBytes.ToArray()));
+                            DecryptedBytes.RemoveRange(0, length);
+
+                            int index = DecryptedBytes.IndexOf(0);
+
+                            string ext = Encoding.UTF8.GetString(DecryptedBytes.GetRange(0, index).ToArray());
+
+                            string PathCurrentFile = $"{GlobalValue.DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{ext}";
+                            DecryptedFilesPath.Add(PathCurrentFile);
+
+                            using (StreamWriter fs = new StreamWriter(File.Create(PathCurrentFile)))
+                            {
+                                string data = Encoding.UTF8.GetString(DecryptedBytes.GetRange(index, DecryptedBytes.Count - index).ToArray());
+                                await fs.WriteAsync(data);
+                            }
+                            DecryptedBytes.Clear();
                         }
-
-                        int length = DecryptedBytes.Count;
-
-                        DecryptedBytes.AddRange(CryptoAES.Decrypt(DecryptedBytes.ToArray()));
-                        DecryptedBytes.RemoveRange(0, length);
-
-                        int index = DecryptedBytes.IndexOf(0);
-
-                        string ext = Encoding.UTF8.GetString(DecryptedBytes.GetRange(0, index).ToArray());
-
-                        string PathCurrentFile = $"{GlobalValue.DECRYPT_PATH}\\{file.FileName.Split('.')[0]}.{ext}";
-                        DecryptedFilesPath.Add(PathCurrentFile);
-
-                        using (StreamWriter fs = new StreamWriter(File.Create(PathCurrentFile)))
-                        {
-                            string data = Encoding.UTF8.GetString(DecryptedBytes.GetRange(index, DecryptedBytes.Count - index).ToArray());
-                            await fs.WriteAsync(data);
-                        }
-                        DecryptedBytes.Clear();
-
-                        await next.Invoke(context);
-                        context.Items.Add("ZipFilePath", FileHandler.CreateZipAndGetResultFileName(ref DecryptedFilesPath));
+                        string ZipPath = FileHandler.CreateZipAndGetResultFileName(ref DecryptedFilesPath, false);
+                        await context.Response.WriteAsync(Path.GetFileName(ZipPath));
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = 460;
                     }
                 }
-                else
+                catch (Exception)
                 {
-                    context.Response.StatusCode = 460;
-                    await next.Invoke(context);
-                }               
+                    context.Response.StatusCode = 526;
+                }
+                FileHandler.GarbageCollection(ref DecryptedFilesPath);
             }
-            catch (Exception)
-            {
-                context.Response.StatusCode = 526;
-                await next.Invoke(context);
-            }
-            FileHandler.GarbageCollection(ref DecryptedFilesPath);
         }
     }
 }

@@ -13,43 +13,49 @@ namespace CryptoWeb
         {
             this.next = next;
         }
-        public async void InvokeAsync(HttpContext context)
+        public async Task InvokeAsync(HttpContext context)
         {
-            IFormFileCollection? files = null;
-            List<string> EncryptedFilesPaths = null;
-            try
+            if (context.Request.Path == "/Encrypt")
             {
-                files = context.Request.Form.Files;
-
-                if (files != null)
+                IFormFileCollection? files = null;
+                List<string> EncryptedFilesPaths = null;
+                try
                 {
-                    EncryptedFilesPaths = new List<string>();
+                    files = context.Request.Form.Files;
 
-                    GetEncryptedFilesPaths(files, ref EncryptedFilesPaths);
+                    if (files != null)
+                    {
+                        EncryptedFilesPaths = new List<string>();
+                        GetEncryptedFilesPaths(files, ref EncryptedFilesPaths);
 
-                    cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
+                        cryptoAES.NewIVAndKey(context.Request.Query["pass"], 16);
 
-                    CreateFileAndWriteData(files, EncryptedFilesPaths);
+                        CreateFileAndWriteData(files, EncryptedFilesPaths);
+                        string ZipPath = FileHandler.CreateZipAndGetResultFileName(ref EncryptedFilesPaths, true);
+                        await context.Response.WriteAsync(Path.GetFileName(ZipPath));
+                    }
+                    else
+                    {
+                        context.Response.StatusCode = 460;
+                    }
                 }
-                else
+                catch (Exception)
                 {
-                    context.Response.StatusCode = 460;
-                    await next.Invoke(context);
+                    context.Response.StatusCode = 527;
                 }
+                FileHandler.GarbageCollection(ref EncryptedFilesPaths);
             }
-            catch (Exception)
+            else
             {
-                context.Response.StatusCode = 527;
                 await next.Invoke(context);
             }
-            FileHandler.GarbageCollection(ref EncryptedFilesPaths);
         }
         private void GetEncryptedFilesPaths(IFormFileCollection? files, ref List<string> resultPaths)
         {
             foreach (var item in files)
             {
                 string filePath = $"{GlobalValue.ENCRYPT_PATH}{item.FileName.Split('.')[0]}.bin";
-                resultPaths.Append<string>(filePath);
+                resultPaths.Add(filePath);
             }
         }
         private async void CreateFileAndWriteData(IFormFileCollection? files, List<string> EncryptedFilesPaths)
